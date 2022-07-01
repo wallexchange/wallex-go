@@ -1,6 +1,7 @@
 package wallex
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,7 +11,10 @@ import (
 	"time"
 )
 
-const baseURL = "https://api.wallex.ir"
+const (
+	baseURL      = "https://api.wallex.ir"
+	apiKeyHeader = "x-api-key"
+)
 
 // Error is a service error.
 type Error struct {
@@ -196,8 +200,8 @@ type MarketOrder struct {
 	Sum      Number `json:"sum"`
 }
 
-// OpenOrders retrieves list of open-orders in a market.
-func (c *Client) OpenOrders(symbol string) (ask []*MarketOrder, bid []*MarketOrder, _ error) {
+// MarketOrders retrieves list of active orders in a market.
+func (c *Client) MarketOrders(symbol string) (ask []*MarketOrder, bid []*MarketOrder, _ error) {
 	query := url.Values{}
 	query.Add("symbol", symbol)
 
@@ -224,7 +228,7 @@ func (c *Client) OpenOrders(symbol string) (ask []*MarketOrder, bid []*MarketOrd
 	return result.Result.Ask, result.Result.Bid, nil
 }
 
-// MarketOrder represents an trade in the market.
+// MarketTrade represents an trade in the market.
 type MarketTrade struct {
 	Symbol    string    `json:"symbol"`
 	Quantity  Number    `json:"quantity"`
@@ -233,8 +237,8 @@ type MarketTrade struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
-// OpenOrders retrieves list of most recent trades in a market.
-func (c *Client) Trades(symbol string) ([]*MarketTrade, error) {
+// MarketTrades retrieves list of most recent trades in a market.
+func (c *Client) MarketTrades(symbol string) ([]*MarketTrade, error) {
 	query := url.Values{}
 	query.Add("symbol", symbol)
 
@@ -325,16 +329,648 @@ func (c *Client) Candles(symbol, resolution string, from, to time.Time) ([]*Cand
 }
 
 // -----------------------------------------------------------------------------
+// Account
+// -----------------------------------------------------------------------------
+
+// Profile represents a Wallex account.
+type Profile struct {
+	TrackingID   int       `json:"tracking_id"`
+	FirstName    string    `json:"first_name"`
+	LastName     string    `json:"last_name"`
+	NationalCode string    `json:"national_code"`
+	FaceImage    string    `json:"face_image"`
+	Birthday     time.Time `json:"birthday"`
+	Address      struct {
+		Country     *string `json:"country"`
+		Province    *string `json:"province"`
+		City        *string `json:"city"`
+		Location    *string `json:"location"`
+		PostalCode  *string `json:"postal_code"`
+		HouseNumber *string `json:"house_number"`
+	} `json:"address"`
+	PhoneNumber struct {
+		AreaCode   string `json:"area_code"`
+		MainNumber string `json:"main_number"`
+	} `json:"phone_number"`
+	MobileNumber string  `json:"mobile_number"`
+	Verification string  `json:"verification"`
+	Email        string  `json:"email"`
+	InviteCode   string  `json:"invite_code"`
+	Avatar       *string `json:"avatar"`
+	Commission   int     `json:"commission"`
+	Settings     struct {
+		Num0               string   `json:"0"`
+		Theme              string   `json:"theme"`
+		Mode               string   `json:"mode"`
+		OrderSubmitConfirm bool     `json:"order_submit_confirm"`
+		OrderDeleteConfirm bool     `json:"order_delete_confirm"`
+		DefaultMode        bool     `json:"default_mode"`
+		FavoriteMarkets    []string `json:"favorite_markets"`
+		ChooseTradingType  bool     `json:"choose_trading_type"`
+		CoinDeposit        bool     `json:"coin_deposit"`
+		CoinWithdraw       bool     `json:"coin_withdraw"`
+		MoneyDeposit       bool     `json:"money_deposit"`
+		MoneyWithdraw      bool     `json:"money_withdraw"`
+		Logins             bool     `json:"logins"`
+		Trade              bool     `json:"trade"`
+		APIKeyExpiration   bool     `json:"api_key_expiration"`
+		Notification       struct {
+			Email struct {
+				IsEnable bool `json:"is_enable"`
+				Actions  struct {
+					CoinDeposit struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"coin_deposit"`
+					CoinWithdraw struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"coin_withdraw"`
+					MoneyDeposit struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"money_deposit"`
+					MoneyWithdraw struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"money_withdraw"`
+					Logins struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"logins"`
+					APIKeyExpiration struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"api_key_expiration"`
+					ManualDeposit struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"manual_deposit"`
+				} `json:"actions"`
+				Label string `json:"label"`
+			} `json:"email"`
+			Announcement struct {
+				IsEnable bool `json:"is_enable"`
+				Actions  struct {
+					CoinDeposit struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"coin_deposit"`
+					CoinWithdraw struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"coin_withdraw"`
+					MoneyDeposit struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"money_deposit"`
+					MoneyWithdraw struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"money_withdraw"`
+					Logins struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"logins"`
+					Trade struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"trade"`
+					APIKeyExpiration struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"api_key_expiration"`
+					ManualDeposit struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"manual_deposit"`
+					PriceAlert struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"price_alert"`
+				} `json:"actions"`
+				Label string `json:"label"`
+			} `json:"announcement"`
+			Push struct {
+				IsEnable bool `json:"is_enable"`
+				Actions  struct {
+					CoinDeposit struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"coin_deposit"`
+					CoinWithdraw struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"coin_withdraw"`
+					MoneyDeposit struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"money_deposit"`
+					MoneyWithdraw struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"money_withdraw"`
+					Logins struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"logins"`
+					Trade struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"trade"`
+					APIKeyExpiration struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"api_key_expiration"`
+					ManualDeposit struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"manual_deposit"`
+					PriceAlert struct {
+						IsEnable bool   `json:"is_enable"`
+						Label    string `json:"label"`
+					} `json:"price_alert"`
+				} `json:"actions"`
+				Label string `json:"label"`
+			} `json:"push"`
+		} `json:"notification"`
+	} `json:"settings"`
+	Status struct {
+		FirstName         string `json:"first_name"`
+		LastName          string `json:"last_name"`
+		NationalCode      string `json:"national_code"`
+		NationalCardImage string `json:"national_card_image"`
+		FaceImage         string `json:"face_image"`
+		Birthday          string `json:"birthday"`
+		Address           string `json:"address"`
+		PhoneNumber       string `json:"phone_number"`
+		MobileNumber      string `json:"mobile_number"`
+		Email             string `json:"email"`
+	} `json:"status"`
+	KycInfo struct {
+		Details struct {
+			MobileActivation bool `json:"mobile_activation"`
+			PersonalInfo     bool `json:"personal_info"`
+			FinancialInfo    bool `json:"financial_info"`
+			PhoneNumber      bool `json:"phone_number"`
+			NationalCard     bool `json:"national_card"`
+			FaceRecognition  bool `json:"face_recognition"`
+			AdminApproval    bool `json:"admin_approval"`
+		} `json:"details"`
+		Level int `json:"level"`
+	} `json:"kyc_info"`
+	Meta struct {
+		DisabledFeatures []string `json:"disabled_features"`
+	} `json:"meta"`
+}
+
+// Profile retrieves account profile.
+func (c *Client) Profile() (*Profile, error) {
+	if c.apiKey == "" {
+		return nil, ErrMissingAPIKey
+	}
+
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/v1/account/profile", nil)
+	if err != nil {
+		return nil, wrapRequestError(err)
+	}
+	req.Header.Add(apiKeyHeader, c.apiKey)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, wrapRequestError(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, errNonOKResponse(resp.StatusCode)
+	}
+
+	result := struct {
+		Result *Profile `json:"result"`
+	}{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, wrapRequestError(err)
+	}
+
+	return result.Result, nil
+}
+
+// Balance represents holdings for an asset.
+type Balance struct {
+	Asset  string `json:"asset"`
+	FaName string `json:"faName"`
+	Fiat   bool   `json:"fiat"`
+	Value  Number `json:"value"`
+	Locked Number `json:"locked"`
+}
+
+// Balances retrieves a mapping between assets and their holdings.
+func (c *Client) Balances() (map[string]*Balance, error) {
+	if c.apiKey == "" {
+		return nil, ErrMissingAPIKey
+	}
+
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/v1/account/balances", nil)
+	if err != nil {
+		return nil, wrapRequestError(err)
+	}
+	req.Header.Add(apiKeyHeader, c.apiKey)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, wrapRequestError(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, errNonOKResponse(resp.StatusCode)
+	}
+
+	result := struct {
+		Result struct {
+			Balances map[string]*Balance `json:"balances"`
+		} `json:"result"`
+	}{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, wrapRequestError(err)
+	}
+
+	return result.Result.Balances, nil
+}
+
+// NamedFeeLevel represents a certain level on fees.
+type NamedFeeLevel struct {
+	MakerFee Number `json:"maker_fee"`
+	TakerFee Number `json:"taker_fee"`
+	Name     Number `json:"name"`
+}
+
+// FeeLevel contains the information for all fee levels and the current level.
+type FeeLevel struct {
+	Levels        map[Number]*NamedFeeLevel `json:"levels"`
+	RecentDays    int                       `json:"recent_days"`
+	RecentDaysSum Number                    `json:"recent_days_sum"`
+	MakerFee      Number                    `json:"maker_fee"`
+	TakerFee      Number                    `json:"taker_fee"`
+	IsFixed       bool                      `json:"is_fixed"`
+}
+
+// FeeLevels retrieves a mapping between symbols and fee levels.
+func (c *Client) FeeLevels() (map[string]*FeeLevel, error) {
+	if c.apiKey == "" {
+		return nil, ErrMissingAPIKey
+	}
+
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/v1/account/fee", nil)
+	if err != nil {
+		return nil, wrapRequestError(err)
+	}
+	req.Header.Add(apiKeyHeader, c.apiKey)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, wrapRequestError(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, errNonOKResponse(resp.StatusCode)
+	}
+
+	result := struct {
+		Result map[string]*FeeLevel `json:"result"`
+	}{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, wrapRequestError(err)
+	}
+
+	return result.Result, nil
+}
+
+// BankingCard represents a banking card.
+type BankingCard struct {
+	ID         int      `json:"id"`
+	CardNumber string   `json:"card_number"`
+	Owners     []string `json:"owners"`
+	Status     string   `json:"status"`
+	IsDefault  int      `json:"is_default"`
+}
+
+// BankingCards retrieves a list of all user's banking cards.
+func (c *Client) BankingCards() ([]*BankingCard, error) {
+	if c.apiKey == "" {
+		return nil, ErrMissingAPIKey
+	}
+
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/v1/account/card-numbers", nil)
+	if err != nil {
+		return nil, wrapRequestError(err)
+	}
+	req.Header.Add(apiKeyHeader, c.apiKey)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, wrapRequestError(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, errNonOKResponse(resp.StatusCode)
+	}
+
+	result := struct {
+		Result []*BankingCard `json:"result"`
+	}{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, wrapRequestError(err)
+	}
+
+	return result.Result, nil
+}
+
+// BankAccount represents a bank account.
+type BankAccount struct {
+	ID          int      `json:"id"`
+	IBAN        string   `json:"iban"`
+	Owners      []string `json:"owners"`
+	BankName    string   `json:"bank_name"`
+	Status      string   `json:"status"`
+	IsDefault   int      `json:"is_default"`
+	BankDetails struct {
+		Code  string `json:"code"`
+		Label string `json:"label"`
+	} `json:"bank_details"`
+}
+
+// BankAccounts retrieves a list of all user's bank accounts.
+func (c *Client) BankAccounts() ([]*BankAccount, error) {
+	if c.apiKey == "" {
+		return nil, ErrMissingAPIKey
+	}
+
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/v1/account/ibans", nil)
+	if err != nil {
+		return nil, wrapRequestError(err)
+	}
+	req.Header.Add(apiKeyHeader, c.apiKey)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, wrapRequestError(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, errNonOKResponse(resp.StatusCode)
+	}
+
+	result := struct {
+		Result []*BankAccount `json:"result"`
+	}{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, wrapRequestError(err)
+	}
+
+	return result.Result, nil
+}
+
+// -----------------------------------------------------------------------------
+// Orders and trades
+// -----------------------------------------------------------------------------
+
+// List of order types.
+const (
+	OrderTypeLimit  = "LIMIT"
+	OrderTypeMarket = "MARKET"
+)
+
+// List of order sides.
+const (
+	OrderSideBuy  = "BUY"
+	OrderSideSell = "SELL"
+)
+
+// OrderParams is the request params to place an order.
+type OrderParams struct {
+	Symbol   string `json:"symbol"`
+	Type     string `json:"type"`
+	Side     string `json:"side"`
+	Price    Number `json:"price"`
+	Quantity Number `json:"quantity"`
+	ClientID string `json:"client_id,omitempty"`
+}
+
+// Order represents a placed order.
+type Order struct {
+	Symbol          string    `json:"symbol"`
+	Type            string    `json:"type"`
+	Side            string    `json:"side"`
+	Price           Number    `json:"price"`
+	OrigQty         Number    `json:"origQty"`
+	OrigSum         Number    `json:"origSum"`
+	ExecutedPrice   *Number   `json:"executedPrice"`
+	ExecutedQty     *Number   `json:"executedQty"`
+	ExecutedSum     *Number   `json:"executedSum"`
+	ExecutedPercent *Number   `json:"executedPercent"`
+	Status          string    `json:"status"`
+	Active          bool      `json:"active"`
+	ClientOrderID   string    `json:"clientOrderId"`
+	CreatedAt       time.Time `json:"created_at"`
+}
+
+// PlaceOrder places a new order.
+func (c *Client) PlaceOrder(p *OrderParams) (*Order, error) {
+	if c.apiKey == "" {
+		return nil, ErrMissingAPIKey
+	}
+
+	body, _ := json.Marshal(p)
+	req, err := http.NewRequest(http.MethodPost, baseURL+"/v1/account/orders", bytes.NewReader(body))
+	if err != nil {
+		return nil, wrapRequestError(err)
+	}
+	req.Header.Add(apiKeyHeader, c.apiKey)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, wrapRequestError(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, errNonOKResponse(resp.StatusCode)
+	}
+
+	result := struct {
+		Result *Order `json:"result"`
+	}{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, wrapRequestError(err)
+	}
+
+	return result.Result, nil
+}
+
+// CancelOrder cancels a placed order.
+func (c *Client) CancelOrder(clientOrderID string) error {
+	if c.apiKey == "" {
+		return ErrMissingAPIKey
+	}
+
+	query := url.Values{}
+	query.Add("clientOrderId", clientOrderID)
+
+	req, err := http.NewRequest(http.MethodDelete, baseURL+"/v1/account/orders?"+query.Encode(), nil)
+	if err != nil {
+		return wrapRequestError(err)
+	}
+	req.Header.Add(apiKeyHeader, c.apiKey)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return wrapRequestError(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return errNonOKResponse(resp.StatusCode)
+	}
+
+	return nil
+}
+
+// Order retrieves details for a placed order.
+func (c *Client) Order(ClientOrderID string) (*Order, error) {
+	if c.apiKey == "" {
+		return nil, ErrMissingAPIKey
+	}
+
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/v1/account/orders/"+ClientOrderID, nil)
+	if err != nil {
+		return nil, wrapRequestError(err)
+	}
+	req.Header.Add(apiKeyHeader, c.apiKey)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, wrapRequestError(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, errNonOKResponse(resp.StatusCode)
+	}
+
+	result := struct {
+		Result *Order `json:"result"`
+	}{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, wrapRequestError(err)
+	}
+
+	return result.Result, nil
+}
+
+// OpenOrders retrievs a list of user's active orders.
+// If symbol is empty, it retrieves active orders for all markets.
+func (c *Client) OpenOrders(symbol string) ([]*Order, error) {
+	if c.apiKey == "" {
+		return nil, ErrMissingAPIKey
+	}
+
+	query := url.Values{}
+	if symbol != "" {
+		query.Add("symbol", symbol)
+	}
+
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/v1/account/openOrders?"+query.Encode(), nil)
+	if err != nil {
+		return nil, wrapRequestError(err)
+	}
+	req.Header.Add(apiKeyHeader, c.apiKey)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, wrapRequestError(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, errNonOKResponse(resp.StatusCode)
+	}
+
+	result := struct {
+		Result struct {
+			Orders []*Order `json:"orders"`
+		} `json:"result"`
+	}{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, wrapRequestError(err)
+	}
+
+	return result.Result.Orders, nil
+}
+
+// Trade represents a fulfilled trade.
+type Trade struct {
+	Symbol         string    `json:"symbol"`
+	Quantity       Number    `json:"quantity"`
+	Price          Number    `json:"price"`
+	Sum            Number    `json:"sum"`
+	Fee            Number    `json:"fee"`
+	FeeCoefficient Number    `json:"feeCoefficient"`
+	FeeAsset       string    `json:"feeAsset"`
+	IsBuyer        bool      `json:"isBuyer"`
+	Timestamp      time.Time `json:"timestamp"`
+}
+
+// Trades retrieves list of most recent user's trades.
+// If symbol is empty, it retrieves trades for all markets.
+// If side is empty, it retrieves trades for both sides.
+func (c *Client) Trades(symbol, side string) ([]*Trade, error) {
+	if c.apiKey == "" {
+		return nil, ErrMissingAPIKey
+	}
+
+	query := url.Values{}
+	if symbol != "" {
+		query.Add("symbol", symbol)
+	}
+	if side != "" {
+		query.Add("side", side)
+	}
+
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/v1/account/trades?"+query.Encode(), nil)
+	if err != nil {
+		return nil, wrapRequestError(err)
+	}
+	req.Header.Add(apiKeyHeader, c.apiKey)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, wrapRequestError(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, errNonOKResponse(resp.StatusCode)
+	}
+
+	result := struct {
+		Result struct {
+			AccountLatestTrades []*Trade `json:"AccountLatestTrades"`
+		} `json:"result"`
+	}{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, wrapRequestError(err)
+	}
+
+	return result.Result.AccountLatestTrades, nil
+}
+
+// -----------------------------------------------------------------------------
 // Error handling
 // -----------------------------------------------------------------------------
 
 // List of common service errors.
 var (
-	ErrBadRequest   = &Error{Message: "bad request"}
-	ErrUnauthorized = &Error{Message: "unauthorized"}
-	ErrForbidden    = &Error{Message: "access forbidden"}
-	ErrNotFound     = &Error{Message: "resource not found"}
-	ErrUnknown      = &Error{Message: "unknown error"}
+	ErrMissingAPIKey = &Error{Message: "missing api key"}
+	ErrBadRequest    = &Error{Message: "bad request"}
+	ErrUnauthorized  = &Error{Message: "unauthorized"}
+	ErrForbidden     = &Error{Message: "access forbidden"}
+	ErrNotFound      = &Error{Message: "resource not found"}
+	ErrUnknown       = &Error{Message: "unknown error"}
 )
 
 func wrapRequestError(err error) error {
