@@ -1,6 +1,6 @@
 # Wallex-Go
 
-This library provides a Go client for Wallex Exchange API described [here](https://wallex-docs.github.io/#5dbb671bc6).
+This library provides a Go client for Wallex Exchange API described [here](https://wallex-docs.github.io).
 
 ## Install
 
@@ -23,4 +23,4 @@ func main() {
 
 ## TODO
 
-- [ ] Add Socket.io websocket
+- [ ] Add socket.io endpoints

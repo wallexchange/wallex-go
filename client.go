@@ -359,7 +359,6 @@ type Profile struct {
 	Avatar       *string `json:"avatar"`
 	Commission   int     `json:"commission"`
 	Settings     struct {
-		Num0               string   `json:"0"`
 		Theme              string   `json:"theme"`
 		Mode               string   `json:"mode"`
 		OrderSubmitConfirm bool     `json:"order_submit_confirm"`
@@ -834,12 +833,12 @@ func (c *Client) CancelOrder(clientOrderID string) error {
 }
 
 // Order retrieves details for a placed order.
-func (c *Client) Order(ClientOrderID string) (*Order, error) {
+func (c *Client) Order(clientOrderID string) (*Order, error) {
 	if c.apiKey == "" {
 		return nil, ErrMissingAPIKey
 	}
 
-	req, err := http.NewRequest(http.MethodGet, baseURL+"/v1/account/orders/"+ClientOrderID, nil)
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/v1/account/orders/"+clientOrderID, nil)
 	if err != nil {
 		return nil, wrapRequestError(err)
 	}
